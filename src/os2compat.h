@@ -27,4 +27,14 @@
 #define FSCTL_FSDNAME           3
 #endif
 
+/* 64-bit integer (low word first): the 16-bit OS/2 1.x headers do not define it */
+#ifndef RAMFS_LONGLONG_DEFINED
+#define RAMFS_LONGLONG_DEFINED
+typedef struct _RAMFS_LONGLONG {
+   unsigned long ulLo;
+   long          lHi;
+} LONGLONG;
+typedef LONGLONG far *PLONGLONG;
+#endif
+
 #endif

@@ -1,248 +1,166 @@
-/*static char *SCCSID = "@(#)fsh.h	6.5 91/10/20";*/
-/*  fsh.h   - FSH_ = fshelper interface declarations */
-
 /*
- *  FSH_DOVOLIO2 omits flag definition
+ * fsh.h - kernel helper (FSH_xxx) services of the OS/2 installable file system interface
+ *
+ * Copyright (c) 2026 OS2World.
+ * Released into the public domain,
+ * like the rest of RAMFS (public domain; written by OS2World, who holds the rights).
+ *
+ * Clean-room replacement: written from public documentation, see doc/PROVENANCE.md of the RAMFS project.
+ * The prototypes were first written for the HFS/2 port (OS2World, 2026) and
+ * verified there on ArcaOS. All helpers are 16-bit far pascal routines imported by
+ * ordinal in the link step (see ifs/makefile.wcc).
+ *
+ * struct vpfsi / struct vpfsd are declared in fsd.h; include that first.
  */
 
-APIRET APIENTRY FSH_ADDSHARE (
-    PSZ		pName,
-    USHORT	mode,
-    USHORT	hVPB,
-    PULONG	phShare );
+#ifndef RAMFS_FSH_H_INCLUDED
+#define RAMFS_FSH_H_INCLUDED
 
-APIRET APIENTRY FSH_CALLDRIVER (
-    PVOID	pPkt,
-    USHORT	hVPB,
-    USHORT	fControl );
+/* ------------------------------------------------------------------ */
+/* Flag and value groups                                                */
+/* ------------------------------------------------------------------ */
 
-APIRET APIENTRY FSH_CANONICALIZE (
-    PSZ		pPathName,
-    USHORT	cbPathBuf,
-    PSZ		pPathBuf,
-    PUSHORT 	pFlags );
+/* time-out arguments of the semaphore helpers, milliseconds */
+#define TO_INFINITE  0xFFFFFFFFUL
+#define TO_NOWAIT    0x00000000UL
 
-APIRET APIENTRY FSH_CHECKEANAME (
-    USHORT	iLevel,
-    ULONG	cbEAName,
-    PSZ		szEAName );
+/* FSH_PROBEBUF operation */
+#define PB_OPREAD    0x0000
+#define PB_OPWRITE   0x0001
 
-APIRET APIENTRY FSH_CRITERROR (
-    USHORT	cbMessage,
-    PSZ		pMessage,
-    USHORT	nSubs,
-    PSZ		pSubs,
-    USHORT	fAllowed );
+/* FSH_DOVOLIO operation bits */
+#define DVIO_OPREAD     0x0000
+#define DVIO_OPWRITE    0x0001
+#define DVIO_OPBYPASS   0x0002
+#define DVIO_OPVERIFY   0x0004
+#define DVIO_OPHARDERR  0x0008
+#define DVIO_OPWRTHRU   0x0010
+#define DVIO_OPNCACHE   0x0020
+#define DVIO_OPRESMEM   0x0040
 
-/*  Flags for fAllowed
- */
-#define CE_ALLFAIL	0x0001		/*  FAIL allowed		      */
-#define CE_ALLABORT	0x0002		/*  ABORT allowed		      */
-#define CE_ALLRETRY	0x0004		/*  RETRY allowed		      */
-#define CE_ALLIGNORE	0x0008		/*  IGNORE allowed		      */
-#define CE_ALLACK	0x0010		/*  ACK allowed			      */
+/* FSH_DOVOLIO allowed-reaction bits */
+#define DVIO_ALLFAIL    0x0001
+#define DVIO_ALLABORT   0x0002
+#define DVIO_ALLRETRY   0x0004
+#define DVIO_ALLIGNORE  0x0008
+#define DVIO_ALLACK     0x0010
 
-/*  Return values from FSH_CRITERR
- */
-#define CE_RETIGNORE	0x0000		/*  User said IGNORE		      */
-#define CE_RETRETRY	0x0001		/*  User said RETRY		      */
-#define CE_RETFAIL	0x0003		/*  User said FAIL/ABORT	      */
-#define CE_RETACK	0x0004		/*  User said continue		      */
+/* FSH_CRITERROR allowed-reaction bits */
+#define CE_ALLFAIL      0x0001
+#define CE_ALLABORT     0x0002
+#define CE_ALLRETRY     0x0004
+#define CE_ALLIGNORE    0x0008
+#define CE_ALLACK       0x0010
 
-APIRET APIENTRY FSH_DEVIOCTL (
-    USHORT	flag,
-    ULONG	hDev,
-    USHORT	sfn,
-    USHORT	cat,
-    USHORT	func,
-    PVOID	pParm,
-    USHORT	cbParm,
-    PVOID	pData,
-    USHORT	cbData );
+/* FSH_CRITERROR answers */
+#define CE_RETIGNORE    0x0000
+#define CE_RETRETRY     0x0001
+#define CE_RETFAIL      0x0003
+#define CE_RETACK       0x0004
 
-APIRET APIENTRY FSH_DOVOLIO (
-    USHORT	operation,
-    USHORT	fAllowed,
-    USHORT	hVPB,
-    PVOID	pData,
-    PUSHORT	pcSec,
-    ULONG	iSec );
+/* FSH_FLUSHBUF fDiscard */
+#define FB_DISCNONE     0x0000
+#define FB_DISCCLEAN    0x0001
 
-/*  Flags for operation
- */
-#define DVIO_OPREAD	0x0000		/*  no bit on => readi		      */
-#define DVIO_OPWRITE	0x0001		/*  ON => write else read	      */
-#define DVIO_OPBYPASS	0x0002		/*  ON => cache bypass else no bypass */
-#define DVIO_OPVERIFY	0x0004		/*  ON => verify after write	      */
-#define DVIO_OPHARDERR	0x0008		/*  ON => return hard errors directly */
-#define DVIO_OPWRTHRU	0x0010		/*  ON => write thru		      */
-#define DVIO_OPNCACHE	0x0020		/*  ON => don't cache data            */
-#define DVIO_OPRESMEM	0x0040		/*  ON => don't lock this memory      */
+/* FSH_GETOVERLAPBUF pre-read control */
+#define GB_PRNOREAD     0x0001
 
-/*  Flags for fAllowed
- */
-#define DVIO_ALLFAIL	0x0001		/*  FAIL allowed		      */
-#define DVIO_ALLABORT	0x0002		/*  ABORT allowed		      */
-#define DVIO_ALLRETRY	0x0004		/*  RETRY allowed		      */
-#define DVIO_ALLIGNORE	0x0008		/*  IGNORE allowed		      */
-#define DVIO_ALLACK	0x0010		/*  ACK allowed			      */
+/* FSH_QSYSINFO index */
+#define QSI_SECSIZE     1
+#define QSI_PROCID      2
+#define QSI_THREADNO    3
+#define QSI_VERIFY      4
 
-APIRET APIENTRY FSH_DOVOLIO2 (
-    ULONG	hDev,
-    USHORT	sfn,
-    USHORT	cat,
-    USHORT	func,
-    PVOID	pParm,
-    USHORT	cbParm,
-    PVOID	pData,
-    USHORT	cbData );
+/* FSH_REGISTERPERFCTRS fsFlags */
+#define RPC_16BIT       0x0000
+#define RPC_32BIT       0x0001
 
-APIRET APIENTRY FSH_FINDCHAR (
-    USHORT	nChars,
-    PCHAR	pChars,
-    PSZ	FAR *   ppStr );
+/* FSH_SEGALLOC flags */
+#define SA_FLDT         0x0001      /* allocate from the LDT rather than GDT */
+#define SA_FSWAP        0x0002      /* segment may be swapped                */
+#define SA_FRINGMASK    0x6000
+#define SA_FRING0       0x0000
+#define SA_FRING1       0x2000
+#define SA_FRING2       0x4000
+#define SA_FRING3       0x6000
 
-APIRET APIENTRY FSH_FINDDUPHVPB (
-    USHORT	hVPB,
-    PUSHORT	phVPB );
+/* ------------------------------------------------------------------ */
+/* Helper prototypes                                                    */
+/* ------------------------------------------------------------------ */
 
-APIRET APIENTRY FSH_FORCENOSWAP (
-    USHORT	sel );
+/* --- semaphores --- */
+int far pascal FSH_SEMCLEAR(unsigned long far *pSem);
+int far pascal FSH_SEMREQUEST(unsigned long far *pSem, unsigned long cmsTimeout);
+int far pascal FSH_SEMSET(unsigned long far *pSem);
+int far pascal FSH_SEMSETWAIT(unsigned long far *pSem, unsigned long cmsTimeout);
+int far pascal FSH_SEMWAIT(unsigned long far *pSem, unsigned long cmsTimeout);
 
-APIRET APIENTRY FSH_GETPRIORITY (
-    VOID );
+/* --- buffers, memory --- */
+int far pascal FSH_PROBEBUF(unsigned short operation, void far *pData, unsigned short cbData);
+int far pascal FSH_SEGALLOC(unsigned short flags, unsigned long cbSeg, unsigned short far *pSel);
+int far pascal FSH_SEGFREE(unsigned short sel);
+int far pascal FSH_SEGREALLOC(unsigned short sel, unsigned long cbSeg);
+int far pascal FSH_FORCENOSWAP(unsigned short sel);
+int far pascal FSH_GETOVERLAPBUF(unsigned short hVPB, unsigned long iSec, unsigned long iSec2,
+                                 unsigned long far *pisecBuf, char far * far *ppBuf);
 
-APIRET APIENTRY FSH_GETVOLPARM (
-    USHORT	hVPB,
-    struct vpfsi FAR * FAR *ppVPBfsi,
-    struct vpfsd FAR * FAR *ppVPBfsd );
+/* --- volumes and device I/O --- */
+int far pascal FSH_GETVOLPARM(unsigned short hVPB, struct vpfsi far * far *ppVPBfsi,
+                              struct vpfsd far * far *ppVPBfsd);
+int far pascal FSH_FINDDUPHVPB(unsigned short hVPB, unsigned short far *pHVPB);
+int far pascal FSH_SETVOLUME(unsigned short hVPB, unsigned long fControl);
+int far pascal FSH_DOVOLIO(unsigned short operation, unsigned short fAllowed,
+                           unsigned short hVPB, char far *pData,
+                           unsigned short far *pcSec, unsigned long iSec);
+int far pascal FSH_DOVOLIO2(unsigned long hDev, unsigned short sfn, unsigned short cat,
+                            unsigned short func, char far *pParm, unsigned short cbParm,
+                            char far *pData, unsigned short cbData);
+int far pascal FSH_DEVIOCTL(unsigned short FSDRaisedFlag, unsigned long hDev, unsigned short sfn,
+                            unsigned short cat, unsigned short func,
+                            char far *pParm, unsigned short cbParm,
+                            char far *pData, unsigned short cbData);
+int far pascal FSH_FLUSHBUF(unsigned short hVPB, unsigned short fDiscard);
 
-APIRET APIENTRY FSH_INTERR (
-    PCHAR	pMsg,
-    USHORT	cbMsg );
+/* --- names and characters --- */
+int  far pascal FSH_CANONICALIZE(char far *pPathName, unsigned short cbPathBuf,
+                                 char far *pPathBuf, char far *pFlags);
+int  far pascal FSH_CHECKEANAME(unsigned short level, unsigned long len, char far *pEAName);
+int  far pascal FSH_FINDCHAR(unsigned short nChars, char far *pChars, char far * far *ppStr);
+int  far pascal FSH_ISCURDIRPREFIX(char far *pName);
+void far pascal FSH_LOADCHAR(char far * far *ppStr, unsigned short far *pChar);
+void far pascal FSH_PREVCHAR(char far *pBeg, char far * far *ppStr);
+int  far pascal FSH_STORECHAR(unsigned short chDBCS, char far * far *ppStr);
+int  far pascal FSH_UPPERCASE(char far *pName, unsigned short cbPathBuf, char far *pPathBuf);
+int  far pascal FSH_WILDMATCH(char far *pPat, char far *pStr);
+int  far pascal FSH_NAMEFROMSFN(unsigned short sfn, char far *pName, unsigned short far *pcbName);
 
-APIRET APIENTRY FSH_IOBOOST (
-    VOID );
+/* --- sharing --- */
+int far pascal FSH_ADDSHARE(char far *pName, unsigned short mode, unsigned short hVPB,
+                            unsigned long far *phShare);
+int far pascal FSH_REMOVESHARE(unsigned long hShare);
 
-APIRET APIENTRY FSH_IOSEMCLEAR (
-    PVOID	pSem );
+/* --- scheduling and diagnostics --- */
+int far pascal FSH_CRITERROR(int cbMessage, char far *pMessage, int nSubs, char far *pSubs,
+                             unsigned short fAllowed);
+int far pascal FSH_INTERR(char far *pMsg, unsigned short cbMsg);
+int far pascal FSH_QSYSINFO(unsigned short index, char far *pData, unsigned short cbData);
+int far pascal FSH_REGISTERPERFCTRS(char far *pDataBlk, char far *pTextBlk, unsigned short fsFlags);
+int far pascal FSH_YIELD(void);
+int far pascal FSH_IOBOOST(void);
+int far pascal FSH_GETPRIORITY(void);
 
-APIRET APIENTRY FSH_ISCURDIRPREFIX (
-    PSZ		pName );
+/* --- mini file system variants --- */
+int far pascal MFSH_DOVOLIO(char far *Data, unsigned short far *cSec, unsigned long iSec);
+int far pascal MFSH_INTERR(char far *Msg, unsigned short cbMsg);
+int far pascal MFSH_SEGALLOC(unsigned short Flag, unsigned long cbSeg, unsigned short far *Sel);
+int far pascal MFSH_SEGFREE(unsigned short Sel);
+int far pascal MFSH_SEGREALLOC(unsigned short Sel, unsigned long cbSeg);
+int far pascal MFSH_SETBOOTDRIVE(unsigned short drive);
+int far pascal MFSH_CALLRM(unsigned long far *Proc);
+int far pascal MFSH_LOCK(unsigned short Sel, unsigned long far *Handle);
+int far pascal MFSH_PHYSTOVIRT(unsigned long Addr, unsigned short Len, unsigned short far *Sel);
+int far pascal MFSH_UNLOCK(unsigned long Handle);
+int far pascal MFSH_UNPHYSTOVIRT(unsigned short Sel);
+int far pascal MFSH_VIRT2PHYS(unsigned long VirtAddr, unsigned long far *PhysAddr);
 
-APIRET APIENTRY FSH_LOADCHAR (
-    PSZ FAR *	ppStr,
-    PUSHORT	pChar );
-
-APIRET APIENTRY FSH_NAMEFROMSFN (
-    USHORT	sfn,
-    PSZ		pName,
-    PUSHORT	pcbName );
-
-APIRET APIENTRY FSH_PREVCHAR (
-    PSZ		pBeg,
-    PSZ FAR *	ppStr );
-
-APIRET APIENTRY FSH_PROBEBUF (
-    USHORT	operation,
-    PVOID	pData,
-    USHORT	cbData );
-
-/*  Values for operation
- */
-#define PB_OPREAD   0x0000		/*  Check for read access	      */
-#define PB_OPWRITE  0x0001		/*  Check for write access	      */
-
-APIRET APIENTRY FSH_QSYSINFO (
-    USHORT	index,
-    PVOID	pData,
-    USHORT	cbData );
-
-/* Values for index
- */
-#define QSI_SECSIZE	1	/* index to query max sector size */
-#define QSI_PROCID	2	/* index to query PID,UserID and Currentpdb */
-#define QSI_THREADNO	3	/* index to query abs.thread no */
-#define QSI_VERIFY	4	/* index to query per-process verify */
-
-APIRET APIENTRY FSH_REGISTERPERFCTRS (
-    PVOID	pDataBlk,
-    PVOID	pTextBlk,
-    USHORT	fsFlags );
-
-/*  Flags for fsFlags
- */
-#define RPC_16BIT	0x0000		/*  16-bit FSH interface	      */
-#define RPC_32BIT	0x0001		/*  32-bit FSH interface	      */
-
-
-APIRET APIENTRY FSH_REMOVESHARE (
-    ULONG	hShare );
-
-APIRET APIENTRY FSH_SEGALLOC (
-    USHORT	flags,
-    ULONG	cbSeg,
-    PUSHORT	pSel );
-
-/*  Fields for flags
- */
-#define SA_FLDT		0x0001		/*  ON => alloc LDT else GDT	      */
-#define SA_FSWAP	0x0002		/*  ON => swappable memory	      */
-
-#define SA_FRINGMASK	0x6000		/*  mask for isolating ring	      */
-#define SA_FRING0	0x0000		/*  ring 0			      */
-#define SA_FRING1	0x2000		/*  ring 1			      */
-#define SA_FRING2	0x4000		/*  ring 2			      */
-#define SA_FRING3	0x6000		/*  ring 3			      */
-
-
-APIRET APIENTRY FSH_SEGFREE (
-    USHORT	sel );
-
-APIRET APIENTRY FSH_SEGREALLOC (
-    USHORT	sel,
-    ULONG	cbSeg );
-
-
-/*  Timeout equates for all semaphore operations
- */
-#define TO_INFINITE	0xFFFFFFFFL
-#define TO_NOWAIT	0x00000000L
-
-APIRET APIENTRY FSH_SEMCLEAR (
-    PVOID	pSem );
-
-APIRET APIENTRY FSH_SEMREQUEST (
-    PVOID	pSem,
-    ULONG	cmsTimeout );
-
-APIRET APIENTRY FSH_SEMSET (
-    PVOID	pSem );
-
-APIRET APIENTRY FSH_SEMSETWAIT (
-    PVOID	pSem,
-    ULONG	cmsTimeout );
-
-APIRET APIENTRY FSH_SEMWAIT (
-    PVOID	pSem,
-    ULONG	cmsTimeout );
-
-APIRET APIENTRY FSH_SETVOLUME (
-    USHORT	hVPB,
-    USHORT	fControl );
-
-APIRET APIENTRY FSH_STORECHAR (
-    USHORT	chDBCS,
-    PSZ FAR *	ppStr );
-
-APIRET APIENTRY FSH_UPPERCASE (
-    PSZ		pName,
-    USHORT	cbPathBuf,
-    PSZ		pPathBuf );
-
-APIRET APIENTRY FSH_WILDMATCH (
-    PSZ		pPat,
-    PSZ		pStr );
-
-APIRET APIENTRY FSH_YIELD (
-    VOID );
+#endif /* RAMFS_FSH_H_INCLUDED */

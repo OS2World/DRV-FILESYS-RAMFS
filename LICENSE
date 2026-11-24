@@ -1,0 +1,15 @@
+RAMFS - public domain
+=====================
+
+The original RAMFS (Karl Olsen, with later versions maintained by Andrew Belov; version 1.21, 2006) was released by its
+authors as freeware / public domain: see readme.txt ("RAMFS is freeware. Feel free to use it, and to get ideas from the
+source code when you develop your own file systems") and the README of the original repository ("LICENSE: Public Domain").
+
+The changes and additions of the OS2World update (version 1.22) are released into the public domain as well. This covers
+the build files, src\ifslib.c, src\os2compat.h, the changes to the original sources, the replacement kernel interface
+headers src\fsd.h and src\fsh.h (see doc\PROVENANCE.md), the test scripts and the documentation.
+
+Where the law of a country does not allow a public domain dedication, everyone may use, copy, change and distribute this
+software for any purpose, without restriction and without any warranty.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.

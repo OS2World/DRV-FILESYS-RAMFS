@@ -19,7 +19,55 @@ int han_zi = 0;                         /* We would require BIG-5 or Latin-2
 int findnext_resume = 0;                /* Experimental search resumption
                                            hack for DosFindNext */
 
-static char hello_msg[] = "RAMFS.IFS version 1.21\r\n";
+#define RAMFS_VERSION "1.22"
+
+/* Boot messages: quiet by default (errors only), /V verbose, /Q no messages at all, /W wait for a key,
+   /AA beep when loaded. Every line starts with "RAMFS: ". */
+static int fQuiet, fVerbose, fWait, fBeep;
+
+static void Msg (const char *text)
+{
+  static char line[160];
+  USHORT written;
+  unsigned int n = 0, i;
+
+  if (fQuiet)
+    return;
+  for (i = 0; "RAMFS: "[i] != '\0'; i++)
+    line[n++] = "RAMFS: "[i];
+  for (i = 0; text[i] != '\0' && n < sizeof(line) - 3; i++)
+    line[n++] = text[i];
+  line[n++] = '\r';
+  line[n++] = '\n';
+  DosWrite (1, line, n, &written);
+}
+
+/* returns 1 if the lowercase parameter string has the switch /name (not just a longer name starting with it) */
+static int has_switch (const char *params, const char *name)
+{
+  const char *p = params;
+  unsigned int i;
+
+  while (*p != '\0')
+  {
+    if (*p == '/')
+    {
+      for (i = 0; name[i] != '\0' && p[1 + i] == name[i]; i++)
+        ;
+      if (name[i] == '\0' && (p[1 + i] == '\0' || p[1 + i] == ' ' || p[1 + i] == '/' || p[1 + i] == ':'))
+        return 1;
+    }
+    p++;
+  }
+  return 0;
+}
+
+/* stage markers for finding where the initialisation stops (build with -dRAMFS_TRACE) */
+#ifdef RAMFS_TRACE
+#define MARK(s) { static char m_[] = "RAMFS: " s "\r\n"; DosWrite (1, m_, sizeof(m_) - 1, &wlen); }
+#else
+#define MARK(s)
+#endif
 
 /* Helper routine to parse the cluster ranges from command line */
 
@@ -71,19 +119,22 @@ APIRET EXPENTRY FS_INIT (
 {
   int rc;
   USHORT wlen;
-  int   quiet_init = 0;
   char  *p;
   unsigned long vs;
   int vs_mul = -12;
   char params[512];
 
+  MARK ("1 FS_INIT entered");
   UtilEnterRamfs();
+  MARK ("2 UtilEnterRamfs done");
 
   if (szParm != NULL)
   {
     strncpy(params, szParm, sizeof(params)-1);
     params[sizeof(params)-1]='\0';
+    MARK ("2a strncpy done");
     strlwr(params);
+    MARK ("2b strlwr done");
 
     /* Force/disable 3DNow! */
     if (strstr(params, "/3"))
@@ -91,30 +142,39 @@ APIRET EXPENTRY FS_INIT (
     else if (strstr(params, "/!3"))
       threednow = 0;
 
+    MARK ("2c 3dnow checked");
     /* Quiet initialization */
-    if (strstr(params, "/q"))
-       quiet_init = 1;
+    fQuiet   = has_switch (params, "q");
+    fVerbose = has_switch (params, "v");
+    fWait    = has_switch (params, "w");
+    fBeep    = has_switch (params, "aa");
 
+    MARK ("2d q checked");
     /* Do not check the memory access */
     if (strstr(params, "/!vm"))
        verify_memory = 0;
 
+    MARK ("2e vm checked");
     /* Resident mode */
     if (strstr(params, "/r"))
        alloc_flags &= 0x00000004;
 
+    MARK ("2f r checked");
     /* Chinese mode (cancel the kernel fix for DBCS UNC path separation) */
     if (strstr(params, "/¤¤¤å")  ||  strstr(params, "/dbcs"))
        han_zi = 1;
 
+    MARK ("2g dbcs checked");
     /* DosFindNext resumption hack */
     if (strstr(params, "/findnext_resume"))
        findnext_resume = 1;
 
+    MARK ("2h findnext checked");
     /* Specify cluster ranges */
     if ((p = strstr(params, "/clu:")) != NULL)
        parse_cluster_ranges(p + 5);
 
+    MARK ("2i clu checked");
     /* Readjust size */
     if ((p = strstr(params, "/s:")) != NULL)
     {
@@ -136,6 +196,7 @@ APIRET EXPENTRY FS_INIT (
        ramfs_units = (vs_mul > 0) ? (vs << vs_mul) : (vs >> (-vs_mul));
     }
 
+    MARK ("2j size checked");
 #ifdef MAX_HEAP
     if ((p = strstr(params, "/m:")) != NULL)
     {
@@ -162,6 +223,7 @@ APIRET EXPENTRY FS_INIT (
     }
 #endif
 
+    MARK ("2k heap limit done");
     /* Debug output port */
 #ifdef DEBUG
     if ((p = strstr(params, "/com:")) != NULL)
@@ -174,12 +236,15 @@ APIRET EXPENTRY FS_INIT (
 
   }
 
+  MARK ("3 parameters parsed");
+
   /* AAB 08/06/2003 - moved here so we know which port to use for debugging */
   DEBUG_PRINTF1 ("FS_INIT  szParm='%s'", szParm);
 
   /* show hello message */
-  if (!quiet_init)
-    DosWrite (1, hello_msg, sizeof(hello_msg)-1, &wlen);
+  if (fVerbose)
+    Msg ("Version " RAMFS_VERSION " (built " __DATE__ ")");
+  MARK ("4 hello shown");
 
   DevHlp = (PFN) pDevHlp;
   _asm{
@@ -196,10 +261,29 @@ APIRET EXPENTRY FS_INIT (
    pop es
   }
 
+  MARK ("5 global info segment read");
   NearInit();
+  MARK ("6 NearInit done");
   VMInit();
+  MARK ("7 VMInit done");
 
   rc = NO_ERROR;
+
+  if (fVerbose)
+  {
+    if (gcbHeapMax != 0xc0000000UL)
+      Msg ("The memory limit has been set (/M)");
+  }
+  if (fWait && !fQuiet)
+  {
+    char key;
+    USHORT nread;
+
+    Msg ("Press any key to continue.");
+    DosRead (0, &key, 1, &nread);
+  }
+  if (fBeep)
+    DosBeep (1000, 120);
 
   DEBUG_PRINTF1 (" => %d\r\n", rc);
   UtilExitRamfs();

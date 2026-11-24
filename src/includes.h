@@ -4,6 +4,11 @@
 #define INCL_ERRORS
 #include <os2.h>
 
+/* The original build (Microsoft C, -Alfu) loaded DS at every function entry. Open Watcom does not, so the
+   FS_xxx entry points, which the kernel calls with an arbitrary DS, get an explicit _loadds. */
+#undef  EXPENTRY
+#define EXPENTRY pascal far _loadds
+
 #define	 APIRET		USHORT
 
 #include "fsd.h"

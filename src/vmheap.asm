@@ -5,14 +5,26 @@
 ;  * the kernel hot-patch (_fix_kernel, _fix_kernel_npx) and the 3DNow!/MMX transfer routine are gone: they
 ;    patched kernel code of OS/2 14.088-14.095 by pattern and are not safe on newer kernels;
 ;    the plain DWORD transfer (the original fallback) is the only one;
-;  * the 32-bit transfer routine is reached with a link-time far pointer (call far ptr FLAT:) instead of a
-;    selector fetched from an undocumented kernel structure at run time;
+;  * the copy is done inline with 32-bit string instructions (address-size prefix) instead of by a 32-bit routine that
+;    was reached through a selector fetched from an undocumented kernel structure at run time;
 ;  * VMINIT does nothing any more (it is kept because init.c calls it).
 
 .386p
 
-extrn	_DevHlp:dword
-extrn	_alloc_flags:dword
+; DS:ESI = source, ES:EDI = destination, ECX = byte count (DWORD copy, then the last 1-3 bytes).
+; The 67h prefix makes the string instructions use ESI, EDI and ECX in these 16-bit segments.
+DWORD_TRANSFER	macro
+	mov	ebx, ecx
+	cld
+	shr	ecx, 2
+	and	ebx, 3
+	db	67h
+	rep	movsd
+	mov	ecx, ebx
+	db	67h
+	rep	movsb
+	endm
+
 extrn	DOS32FLATDS:near
 
 public	_threednow, _verify_memory
@@ -26,11 +38,10 @@ CONST2	segment word public 'DATA' use16
 CONST2	ends
 
 _DATA	segment word public 'DATA' use16
+extrn	_DevHlp:dword
+extrn	_alloc_flags:dword
 _threednow	dw 0
 _verify_memory	dw 1
-_DATA	ends
-
-_BSS	segment word public 'BSS' use16
 ifdef MAX_HEAP
 _gcbHeapUsed	dd 0
 _gcbHeapMax	dd 0c0000000h
@@ -38,26 +49,13 @@ _gcVMBlocks	dd 0
 _gcVMFrees	dd 0
 _gcVMAllocs	dd 0
 endif
+_DATA	ends
+
+_BSS	segment word public 'BSS' use16
 _BSS	ends
 
 DGROUP	group CONST, CONST2, _DATA, _BSS
 
-_TEXT32	segment word public 'CODE' use32
-
-; The DWORD copy procedure (called with a 16:32 far call from the 16-bit routines below):
-; DS:ESI = source, ES:EDI = destination, ECX = byte count.
-ramfs_dword_transfer	proc far
-	mov	ebx, ecx
-	cld
-	shr	ecx, 2
-	and	ebx, 3
-	rep	movsd
-	mov	ecx, ebx
-	rep	movsb
-	retf
-ramfs_dword_transfer	endp
-
-_TEXT32	ends
 
 _TEXT	segment word public 'CODE' use16
 
@@ -84,6 +82,9 @@ VMVIRTTOFLAT	proc near
 	push	bp
 	mov	bp, sp
 	push	si
+	push	ds
+	mov	ax, seg DGROUP
+	mov	ds, ax
 
 	movzx	esi, word ptr [bp+4]	; offset of p
 	mov	ax, word ptr [bp+6]	; selector of p
@@ -94,6 +95,7 @@ VMVIRTTOFLAT	proc near
 vvtf_end:
 
 	shld	edx, eax, 16
+	pop	ds
 	pop	si
 	pop	bp
 	ret	4
@@ -109,6 +111,9 @@ VMVIRTTOFLAT	endp
 VMALLOC	proc near
 	push	bp
 	mov	bp, sp
+	push	ds
+	mov	ax, seg DGROUP
+	mov	ds, ax
 
 ifdef MAX_HEAP
     mov cx, [bp+8]      ; fForce
@@ -140,6 +145,7 @@ endif
 va_end:
 
 	shld	edx, eax, 16
+	pop	ds
 	pop	bp
 	ret	6
 VMALLOC	endp
@@ -154,6 +160,9 @@ VMALLOC	endp
 VMFREE	proc near
 	push	bp
 	mov	bp, sp
+	push	ds
+	mov	ax, seg DGROUP
+	mov	ds, ax
 
 	mov	eax, [bp+8]		; flatBlock
     or eax, eax
@@ -178,6 +187,7 @@ ifdef MAX_HEAP
 vf_size_nok:
 endif
 vf_end:
+	pop	ds
 	pop	bp
 	ret 8
 VMFREE	endp
@@ -295,6 +305,8 @@ VMREAD	proc near
 	mov	esi, [bp+6]		; source
 	les	di, [bp+10]		; destination
 
+	mov	ax, seg DGROUP
+	mov	ds, ax
 	cmp	_verify_memory, 0
 	jz	vmread_noverify
 	jcxz	vmread_noverify
@@ -305,7 +317,7 @@ VMREAD	proc near
 vmread_noverify:
 	mov	ax, offset DOS32FLATDS
 	mov	ds, ax
-	call	far ptr FLAT:ramfs_dword_transfer
+	DWORD_TRANSFER
 
 read_failed:
 	pop	es	
@@ -336,6 +348,8 @@ VMWRITE	proc near
 	xor	ecx, ecx
 	mov	cx, word ptr [bp+4]	; cbLen
 
+	mov	ax, seg DGROUP
+	mov	ds, ax
 	cmp	_verify_memory, 0
 	jz	vmwrite_noverify
 	jcxz	vmwrite_noverify
@@ -348,7 +362,7 @@ VMWRITE	proc near
 vmwrite_noverify:
 	lds	si, [bp+6]		; pSrc
 	mov	edi, [bp+10]		; flatDest
-	call	far ptr FLAT:ramfs_dword_transfer
+	DWORD_TRANSFER
 
 write_failed:
 	pop	es
@@ -386,7 +400,7 @@ VMCOPY	proc near
 	ja	vc_backwards
 
 	; move forwards
-	call	far ptr FLAT:ramfs_dword_transfer
+	DWORD_TRANSFER
 	jmp	vc_end
 
 vc_backwards:

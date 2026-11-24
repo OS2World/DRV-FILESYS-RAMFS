@@ -10,9 +10,10 @@ LINK   = $(WATCOM)\binp\wlink.exe
 SRC    = src
 BIN    = bin
 
-# the original options of Microsoft C 6.0: -Alfu (large, SS != DS, load DS) -G2s (286, no stack checks) -Zp (pack 1) -J (unsigned char)
+# the original options of Microsoft C 6.0: -Alfu (large, SS != DS, DS loaded at every function entry: _loadds on the FS_ entry points, see src/includes.h) -G2s (286, no stack checks) -Zp (pack 1) -J (unsigned char)
 # -D_ss=far -D_ds=far: the source uses _ss / _ds as pointer qualifiers
-COPT   = -bt=os2 -2 -ml -ecw -s -zdp -zgf -zls -zp=1 -zu -ze -zq -od -of+ -q -dMAX_HEAP -d__COMPACT__ -d_ss=far -d_ds=far -d__16BITS__ -dNULL=0 -fi=$(SRC)\os2compat.h -dINCL_DOSERRORS -dINCL_DOSFILEMGR -dINCL_DOSMISC -i=$(SRC) -i=$(WATCOM)\h -i=$(WATCOM)\h\os21x
+EXTRA  =
+COPT   = $(EXTRA) -bt=os2 -2 -ml -ecw -s -zdp -zgf -zls -zp=1 -zu -ze -zq -od -of+ -q -dMAX_HEAP -d__COMPACT__ -d_ss=far -d_ds=far -d__16BITS__ -dNULL=0 -fi=$(SRC)\os2compat.h -dINCL_DOSERRORS -dINCL_DOSFILEMGR -dINCL_DOSMISC -dINCL_DOSPROCESS -i=$(SRC) -i=$(WATCOM)\h -i=$(WATCOM)\h\os21x
 
 OBJS = $(BIN)\allocate.obj $(BIN)\attach.obj $(BIN)\cancello.obj $(BIN)\chdir.obj $(BIN)\chgfilep.obj &
        $(BIN)\close.obj $(BIN)\commit.obj $(BIN)\copy.obj $(BIN)\delete.obj $(BIN)\dopageio.obj &
@@ -23,7 +24,7 @@ OBJS = $(BIN)\allocate.obj $(BIN)\attach.obj $(BIN)\cancello.obj $(BIN)\chdir.ob
        $(BIN)\notifyne.obj $(BIN)\opencrea.obj $(BIN)\openpage.obj $(BIN)\pathinfo.obj $(BIN)\processn.obj &
        $(BIN)\read.obj $(BIN)\rmdir.obj $(BIN)\setswap.obj $(BIN)\shutdown.obj $(BIN)\verifyun.obj &
        $(BIN)\write.obj $(BIN)\block.obj $(BIN)\ea.obj $(BIN)\find.obj $(BIN)\info.obj $(BIN)\nearheap.obj &
-       $(BIN)\util.obj $(BIN)\vmheap.obj
+       $(BIN)\util.obj $(BIN)\ifslib.obj $(BIN)\vmheap.obj
 
 all: $(BIN)\ramfs.ifs .SYMBOLIC
 
@@ -62,6 +63,8 @@ option description '@#OS2World:1.22#@RAMFS - RAM IFS (Open Watcom)'
 segment type CODE PRELOAD EXECUTEREAD NONSHARED
 segment type DATA PRELOAD NONSHARED
 import DOSWRITE DOSCALLS.138
+import DOSREAD DOSCALLS.137
+import DOSBEEP DOSCALLS.50
 import DOS32FLATDS DOSCALLS.370
 import FSH_WILDMATCH FSHELPER.27
 import FSH_FINDCHAR FSHELPER.30

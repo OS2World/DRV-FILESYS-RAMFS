@@ -6,7 +6,9 @@ The original state is tagged `upstream-original`; this list is every change, fil
 * Sources stay in `src\`. The Microsoft C / IBM ALP / Link386 makefiles (`makefile`, `tools\makefile`, `patch\makefile`),
   the `rollback.gz` and the original assembler (`vmheap.asm.orig`) are in `doc\original\`. The original documentation
   (`readme.txt`, `todo.txt`, `ramfs.gif`, `ramfs.dot`) is in `doc\`.
-* `src\patch\` (kernel hot-patch, see below) moved to `doc\original\patch\`. `src\fshelper.lib` (IBM library) removed.
+* `src\patch\` (the kernel hot-patch, see below) and `src\fshelper.lib` (IBM library) removed from the tree. The patch sources included `ldrmte.h`,
+  whose comment says it was derived from SDF files (IBM kernel debugger structure definitions), so they are not kept in the current tree. They are still in the
+  git history (tag `upstream-original`).
 
 ## Build (no logic change)
 * `Makefile.wat`, `compile_wat.cmd` (new): Open Watcom 2. Options translated from the Microsoft C ones: large model, SS != DS,
